@@ -1,0 +1,5 @@
+canvas {
+  background-image: linear-gradient(#ffffff7f, #ffffff7f), url("background.gif");
+  background-size: cover;
+  background-repeat: no-repeat;
+}
