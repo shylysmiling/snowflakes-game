@@ -8,7 +8,7 @@ Click on the snowflakes before they fall off the screen.
 Where to play?
 --------------------------------------------------------------------------------
 
-- Click on 👉 [link](https://shylysmiling.github.io/snowflakes-game/) in
-	GH repository description, or
+- Click on 👉 [link](https://hypertextprincess.codeberg.page/snowflakes-the-game/@main/) in
+	repository description, or
 
 - Download this repo and open `index.html` file with [Firefox] web browser.
