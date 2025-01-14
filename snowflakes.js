@@ -40,6 +40,7 @@ function setMaxScore(value) {
 
 var canvas = document.querySelector(`canvas#game`)
 var context = canvas.getContext(`2d`)
+var pixelRatio = window.devicePixelRatio || 1
 
 var imageVariants = new ImageVariants(100, 100, `#000`, [
 	...((new Date().getMonth() == 5) ? [`https://raw.githubusercontent.com/NixOS/nixos-artwork/refs/heads/master/logo/nix-snowflake-rainbow.svg`] : []),
@@ -50,7 +51,7 @@ var imageVariants = new ImageVariants(100, 100, `#000`, [
 
 var minScore = -100
 var maxScore = getMaxScore()
-var minSnowflakeSize = 10
+var minSnowflakeSize = 15
 var maxSnowflakeSize = minSnowflakeSize + 40
 var speed = 1
 
@@ -62,9 +63,17 @@ var isWin = false
 var intervalMs = 1000/60
 var eatStreak = 1
 
+function resizeCanvasToViewport() {
+	canvas.width  = window.innerWidth
+	canvas.height = window.innerHeight
+}
+
+window.onresize = resizeCanvasToViewport
+resizeCanvasToViewport()
+
 function createSnowflake() {
   var k = Math.random()
-  var height = (maxSnowflakeSize - minSnowflakeSize) * k + minSnowflakeSize
+  var height = ((maxSnowflakeSize - minSnowflakeSize) * k + minSnowflakeSize)
 
   return {
     image: imageVariants,
@@ -79,6 +88,7 @@ function createSnowflake() {
     draw() {
 			var previousTransform = context.getTransform()
 
+			context.scale(1 / pixelRatio, 1 / pixelRatio)
 			context.translate(this.x, this.y)
 			context.rotate(this.rotation)
 			context.translate(-this.originX, -this.originY)
@@ -89,8 +99,8 @@ function createSnowflake() {
     },
 
     isFallen() {
-      return (this.y - this.height) >= canvas.height ||
-             (this.x - this.width)  >= canvas.width  ||
+      return (this.y - this.height) >= canvas.height * pixelRatio ||
+             (this.x - this.width)  >= canvas.width  * pixelRatio ||
              (this.x - this.width)  <  0
     },
 
@@ -105,8 +115,8 @@ function createSnowflake() {
     },
 
     containsPoint(x, y) {
-      return (this.x <= (x + this.originX) && (x + this.originX) < (this.x + this.width)) &&
-             (this.y <= (y + this.originY) && (y + this.originY) < (this.y + this.height))
+      return (this.x <= (pixelRatio * x + this.originX) && (pixelRatio * x + this.originX) < (this.x + this.width)) &&
+             (this.y <= (pixelRatio * y + this.originY) && (pixelRatio * y + this.originY) < (this.y + this.height))
     },
   }
 }
@@ -117,7 +127,7 @@ function isTimeToSpawn() {
 }
 
 function tapCanvas(event) {
-  var index = snowflakes.findIndex(x=> x.containsPoint(event.offsetX, event.offsetY))
+  var index = snowflakes.findIndex(x => x.containsPoint(event.offsetX, event.offsetY))
 
 	if(index >= 0) {
 		var snowflake = snowflakes[index]
