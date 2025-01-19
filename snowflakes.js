@@ -1,20 +1,25 @@
-function ImageVariants(width, height, altColor, urls) {
+function ImageVariants(altColor, urls) {
 	var variantIndex = 0
 
 	this.altColor = altColor
 
-	var image = new Image(width, height)
+	var image = new Image()
 	image.src = urls[variantIndex]
 
-	image.onload = () => {
-		this.image = image
-	}
-
-	image.onerror = () => {
-		if(variantIndex < urls.length) {
-			image.src = urls[++variantIndex]
+	this.loadingPromise = new Promise((resolve, reject) => {
+		image.onload = () => {
+			this.image = image
+			resolve(this.image)
 		}
-	}
+
+		image.onerror = () => {
+			if(variantIndex < urls.length) {
+				image.src = urls[++variantIndex]
+			} else {
+				reject()
+			}
+		}
+	})
 }
 
 ImageVariants.prototype = {
@@ -25,6 +30,14 @@ ImageVariants.prototype = {
 			context.fillStyle = this.altColor
 			context.fillRect(x, y, width, height)
 		}
+	},
+
+	getWidth() {
+		return this.image || this.image.width
+	},
+
+	getHeight() {
+		return this.image || this.image.height
 	},
 }
 
@@ -42,7 +55,12 @@ var canvas = document.querySelector(`canvas#game`)
 var context = canvas.getContext(`2d`)
 var pixelRatio = window.devicePixelRatio || 1
 
-var imageVariants = new ImageVariants(100, 100, `#000`, [
+var urlKeys = new URLSearchParams(window.location.search)
+var customImage = urlKeys.get(`snowflakeImage`)
+var customImageSize = urlKeys.get(`snowflakeImage`)
+
+var imageVariants = new ImageVariants(`#000`, [
+	customImage,
 	...((new Date().getMonth() == 5) ? [`https://raw.githubusercontent.com/NixOS/nixos-artwork/refs/heads/master/logo/nix-snowflake-rainbow.svg`] : []),
 	`https://raw.githubusercontent.com/NixOS/nixos-artwork/refs/heads/master/logo/nix-snowflake-colours.svg`,
 	`https://upload.wikimedia.org/wikipedia/commons/2/28/Nix_snowflake.svg`,
@@ -74,15 +92,21 @@ resizeCanvasToViewport()
 function createSnowflake() {
   var k = Math.random()
   var height = ((maxSnowflakeSize - minSnowflakeSize) * k + minSnowflakeSize)
+	var width = height
+	var originX = 0.5 * width
+	var originY = 0.5 * height
+
+	imageVariants
+		.loadingPromise
+		.then(image => {
+			width = height * (image.width / image.height)
+			originX = 0.5 * width
+		})
 
   return {
     image: imageVariants,
-    width: height,
-    height: height,
     x: 0.5 * k * canvas.width,
     y: -height,
-    originX: 0.5 * height,
-    originY: 0.5 * height,
     rotation: 0,
 
     draw() {
@@ -91,17 +115,17 @@ function createSnowflake() {
 			context.scale(1 / pixelRatio, 1 / pixelRatio)
 			context.translate(this.x, this.y)
 			context.rotate(this.rotation)
-			context.translate(-this.originX, -this.originY)
+			context.translate(-originX, -originY)
 
-			this.image.draw(context, 0, 0, this.width, this.height)
+			this.image.draw(context, 0, 0, this.getWidth(), this.getHeight())
 
 			context.setTransform(previousTransform)
     },
 
     isFallen() {
-      return (this.y - this.height) >= canvas.height * pixelRatio ||
-             (this.x - this.width)  >= canvas.width  * pixelRatio ||
-             (this.x - this.width)  <  0
+      return (this.y - this.getHeight()) >= canvas.height * pixelRatio ||
+             (this.x - this.getWidth())  >= canvas.width  * pixelRatio ||
+             (this.x - this.getWidth())  <  0
     },
 
     update() {
@@ -115,9 +139,17 @@ function createSnowflake() {
     },
 
     containsPoint(x, y) {
-      return (this.x <= (pixelRatio * x + this.originX) && (pixelRatio * x + this.originX) < (this.x + this.width)) &&
-             (this.y <= (pixelRatio * y + this.originY) && (pixelRatio * y + this.originY) < (this.y + this.height))
+      return (this.x <= (pixelRatio * x + originX) && (pixelRatio * x + originX) < (this.x + this.getWidth())) &&
+             (this.y <= (pixelRatio * y + originY) && (pixelRatio * y + originY) < (this.y + this.getHeight()))
     },
+
+		getWidth() {
+			return width
+		},
+
+		getHeight() {
+			return height
+		},
   }
 }
 
@@ -133,7 +165,7 @@ function tapCanvas(event) {
 		var snowflake = snowflakes[index]
 		snowflakes = snowflakes.filter((_, i) => i != index)
 		eatStreak += 1
-		addScore(1 + 5 * (1 - snowflake.width / maxSnowflakeSize) * eatStreak)
+		addScore(1 + 5 * (1 - snowflake.getWidth() / maxSnowflakeSize) * eatStreak)
 	} else {
 		eatStreak = 0
 	}
@@ -167,7 +199,7 @@ function snowflakesScreen() {
   while(timeAccum - intervalMs >= 0) {
     snowflakes = snowflakes.filter(x => {
       if(x.isFallen()) {
-        addScore(-(2 + 3 * (1 - x.width / maxSnowflakeSize)) * Math.log(Math.abs(totalScore) / 5 + 2.9))
+        addScore(-(2 + 3 * (1 - x.getWidth() / maxSnowflakeSize)) * Math.log(Math.abs(totalScore) / 5 + 2.9))
         return false
       }
 
@@ -251,5 +283,4 @@ function gameOverScreen() {
 
 var previousTime = Date.now()
 var timeAccum = 0
-
 requestAnimationFrame(snowflakesScreen)
